@@ -1,30 +1,58 @@
 # Muelle
 
-Encomiendas con NestJS. El estado solo avanza `recibida → en_ruta → entregada`. Cada avance publica un evento, dispara webhooks firmados con HMAC y avisa por WebSocket a quien esté siguiendo el envío.
+El seguimiento de una encomienda. Solo avanza en orden: recibida, en ruta, entregada. Cada paso avisa a quien sigue el envío y a los webhooks firmados.
 
-## Qué cubre del stack
+## Concepto
 
-| Pieza | Dónde |
+El dominio no salta estados ni reabre una entrega. Al avanzar, el servicio publica un evento. El bus lo reparte: un webhook con HMAC y una sala de WebSocket. Sin NATS, Postgres ni Mongo el proceso usa SQLite y un bus en memoria, que es lo que cubren las pruebas.
+
+## Stack
+
+| Pieza | Para qué |
 | --- | --- |
-| NATS | `src/bus/nats-bus.ts`, activo con `NATS_URL`. Sin esa variable usa un bus en proceso. |
-| Webhooks | `src/webhook/despachador.ts`, header `x-anden-firma`. |
-| Gateway | `src/tracking/tracking.gateway.ts`, evento `seguir`. |
-| PostgreSQL | `src/persistence/postgres.ts`, `POSTGRES_URL`. |
-| Mongo | `src/persistence/mongo.ts`, bitácora de entregas, `MONGO_URL`. |
-| SQLite | Adaptador por defecto, `node:sqlite`, el que corren las pruebas. |
-| Docker y Compose | `Dockerfile`, `docker-compose.yml` (API, NATS, Postgres, Mongo). |
-| Kubernetes | `k8s/deployment.yaml`. El mapa completo del clúster está en `projects/k8s-anden`. |
-| GCloud | `cloudbuild.yaml`. |
-| CI | el workflow del monorepo corre `npm test`. |
-| Git submodule | `contracts/` es el contrato de eventos. Para separarlo: `git submodule add git@github.com:TU_USUARIO/muelle-contracts.git projects/nest-muelle/contracts`. |
+| NestJS | HTTP, el módulo y el ciclo de la app. |
+| NATS | `NatsBus` si existe `NATS_URL`. Si no, un bus en proceso. |
+| Webhooks | `Despachador`, firma en `x-anden-firma`. |
+| Gateway | Socket.IO, evento `seguir`. |
+| PostgreSQL | Adaptador con `POSTGRES_URL`. |
+| MongoDB | Bitácora de entregas con `MONGO_URL`. |
+| SQLite | Adaptador por defecto, `node:sqlite`. |
+| Docker y Compose | API, NATS, Postgres y Mongo. |
+| Kubernetes | `k8s/deployment.yaml`. |
+| Google Cloud Build | `cloudbuild.yaml`. |
+| Git submodule | `contracts/` es el contrato de eventos, listo para extraerse. |
+| CI | `npm test` en el workflow del conjunto. |
+
+## Flujo
+
+```mermaid
+flowchart TD
+  alta[Alta de encomienda]
+  recibida[recibida]
+  ruta[en_ruta]
+  entregada[entregada]
+  bus[Bus]
+  nats[NATS o bus en proceso]
+  hook[Webhook con HMAC]
+  sala[WebSocket]
+  db[SQLite, Postgres o Mongo]
+  alta --> recibida --> ruta --> entregada
+  ruta --> bus
+  entregada --> bus
+  bus --> nats
+  bus --> hook
+  bus --> sala
+  recibida --> db
+```
 
 ## Correr
 
+Desde esta carpeta:
+
 ```bash
-cd projects/nest-muelle
-npm install
+npm ci
 npm test
 npm start
 ```
 
-Escucha en el puerto `3041`.
+Escucha en el puerto `3041`. El mapa completo del clúster está en el proyecto de plataforma Kubernetes.
