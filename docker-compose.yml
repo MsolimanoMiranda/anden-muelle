@@ -1,0 +1,26 @@
+services:
+  api:
+    build: .
+    ports:
+      - "3041:3041"
+    environment:
+      PORT: "3041"
+      NATS_URL: nats://nats:4222
+      POSTGRES_URL: postgres://muelle:oficio@postgres:5432/muelle
+      MONGO_URL: mongodb://mongo:27017/muelle
+    depends_on:
+      - nats
+      - postgres
+      - mongo
+  nats:
+    image: nats:2.10
+    ports:
+      - "4222:4222"
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: muelle
+      POSTGRES_PASSWORD: oficio
+      POSTGRES_DB: muelle
+  mongo:
+    image: mongo:7

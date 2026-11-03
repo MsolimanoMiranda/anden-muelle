@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: muelle
+  namespace: anden
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: muelle
+  template:
+    metadata:
+      labels:
+        app: muelle
+    spec:
+      containers:
+        - name: api
+          image: gcr.io/PROJECT_ID/muelle:latest
+          ports:
+            - containerPort: 3041
+          env:
+            - name: PORT
+              value: "3041"
+            - name: NATS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: muelle-config
+                  key: nats_url
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: muelle
+  namespace: anden
+spec:
+  selector:
+    app: muelle
+  ports:
+    - port: 80
+      targetPort: 3041
